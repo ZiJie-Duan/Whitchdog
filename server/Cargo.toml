@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 tokio = { version = "1", features = ["full"] }
 warp = "0.3"
+kube-ingress-ctl = { path = "../kube-ingress-ctl" }
 
 [dependencies.uuid]
 version = "1.10.0"

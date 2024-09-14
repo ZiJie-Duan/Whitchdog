@@ -1,66 +1,61 @@
-use std::net::SocketAddr;
-use std::net::UdpSocket;
-use std::process::Command;
+use kube_ingress_ctl::get_ingress_white_list;
+use std::thread::sleep;
 use std::time::{Duration, SystemTime};
-use uuid::Uuid;
 
 struct User {
-    addr: SocketAddr,
+    addr: String,
     time: SystemTime,
 }
 
-fn iptables_ctrl() {
-    let output = Command::new("ls")
-        .arg("-l") // 传递参数
-        .output() // 执行命令并获取输出
-        .expect("Failed to execute command");
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    println!("Command output: \n{}", stdout);
+struct UserList {
+    users: Vec<User>,
 }
 
-fn user_update(users: &mut Vec<User>) {
-    for user in users.iter_mut() {
-        match SystemTime::now().duration_since(user.time) {
-            Ok(duration) => {
-                if duration.le(&Duration::from_secs(20)) {
-                    println!("time touch`");
+impl UserList {
+    fn update(&mut self) {
+        println!("Update");
+        let mut index = 0;
+        loop {
+            match self.users.get(index) {
+                Some(user) => match SystemTime::now().duration_since(user.time) {
+                    Ok(dura) => {
+                        if dura.lt(&Duration::from_secs(3)) {
+                            println!("Ok {:?}", dura);
+                            index += 1;
+                        } else {
+                            println!("Timeout {:?}", dura);
+
+                            self.users.remove(index);
+                        }
+                    }
+                    Err(e) => {
+                        self.users.remove(index);
+                        println!("Err {:?}", e);
+                    }
+                },
+                None => {
+                    break;
                 }
             }
-            Err(e) => println!("Error {:?}", e),
         }
     }
-}
 
-fn user_in(addr: SocketAddr, users: &mut Vec<User>) {
-    let mut exist: bool = false;
-    for user in users.iter_mut() {
-        if user.addr == addr {
-            user.time = SystemTime::now();
-            exist = true;
-        }
-    }
-    if !exist {
-        let new_user: User = User {
+    fn add(&mut self, addr: String) {
+        let user = User {
             addr: addr,
             time: SystemTime::now(),
         };
-        users.push(new_user);
+        self.users.push(user);
     }
 }
 
-fn recv_socket(socket: UdpSocket, users: &mut Vec<User>) {
-    let mut buf = [0; 10];
-    let (amt, src) = socket.recv_from(&mut buf).unwrap();
-}
-
-fn main() -> std::io::Result<()> {
-    let users: Vec<User> = Vec::new();
-    let socket = UdpSocket::bind("127.0.0.1:34254")?;
-
-    loop {
-        user_update(&mut users);
-    recv_socket(socket,
-    }
-    Ok(())
+fn main() {
+    let mut users = UserList { users: Vec::new() };
+    let users_ip: Vec<String> = get_ingress_white_list("back-main-ingress", "dev");
+    users_ip.into_iter().for_each(|x| users.add(x));
+    users.update();
+    users.update();
+    sleep(Duration::from_secs(3));
+    users.update();
+    users.update();
 }
